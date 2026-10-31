@@ -285,9 +285,10 @@ static void ParseConfigOptions(const case_insensitive_map_t<string> &config, cas
 }
 
 //! A vended secret is scoped to the table, so DuckDB uses it for the table's files instead of the user's own S3 secret.
-//! Copy the KMS key from the user's secret for this location, unless the vended options already set one.
+//! Copy the KMS key from the user's secret for this location, unless the vended options already set one or carry an
+//! SSE-C key, which httpfs refuses together with a KMS key.
 static void AddUserKMSKeyId(ClientContext &context, const string &location, case_insensitive_map_t<Value> &options) {
-	if (options.find("kms_key_id") != options.end()) {
+	if (options.find("kms_key_id") != options.end() || options.find("sse_c_key") != options.end()) {
 		return;
 	}
 	auto transaction = CatalogTransaction::GetSystemCatalogTransaction(context);

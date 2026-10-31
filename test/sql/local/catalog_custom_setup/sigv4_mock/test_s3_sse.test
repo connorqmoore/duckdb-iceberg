@@ -121,6 +121,37 @@ SELECT count(*) FROM duckdb_secrets() WHERE secret_string LIKE '%sse_c_key=redac
 statement ok
 COMMIT
 
+# A KMS key in the user's own secret for the table location is not copied into the vended SSE-C secret, since httpfs
+# refuses a secret with both
+statement ok
+CREATE SECRET user_kms (
+    TYPE S3,
+    KEY_ID 'user_key',
+    SECRET 'user_secret',
+    REGION 'us-east-1',
+    KMS_KEY_ID 'arn:aws:kms:us-east-1:000000000000:key/user-kms-key',
+    SCOPE 's3://scope-bucket/sse/'
+);
+
+statement ok
+BEGIN
+
+query I
+SELECT count(*) FROM sse.default.customer_key;
+----
+0
+
+query I
+SELECT count(*) FROM duckdb_secrets() WHERE secret_string LIKE '%sse_c_key=redacted%' AND secret_string NOT LIKE '%kms_key_id=%';
+----
+1
+
+statement ok
+COMMIT
+
+statement ok
+DROP SECRET user_kms;
+
 # Without a vended key the files cannot be read or written
 statement error
 SELECT count(*) FROM sse.default.customer_key_missing;
